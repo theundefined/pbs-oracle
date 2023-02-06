@@ -6,6 +6,15 @@ output "generated_ssh_private_key" {
   sensitive = true
 }
 
-output "ip" {
-  value = oci_core_instance.compute_instance.public_ip
+output "ssh" {
+  value = "ssh ubuntu@${oci_core_instance.compute_instance.public_ip}"
+}
+
+output "pbs_url" {
+  value = "https://${oci_core_instance.compute_instance.public_ip}:8007/"
+}
+
+output "root_password" {
+  value     = random_password.rootpassword.result
+  sensitive = true
 }

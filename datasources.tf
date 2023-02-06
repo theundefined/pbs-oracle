@@ -33,8 +33,7 @@ data "oci_identity_regions" "home_region" {
   provider = oci.current_region
 }
 
-# Randoms
-resource "random_string" "deploy_id" {
-  length  = 4
+resource "random_password" "rootpassword" {
+  length  = 16
   special = false
 }

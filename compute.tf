@@ -7,11 +7,16 @@ data "template_file" "cloud-config" {
   template = <<YAML
 #cloud-config
 runcmd:
- - apt update
+ - apt-get update
  - apt -y full-upgrade
- - apt install -y lxc lxc-templates lxc-utils swapspace
+ - apt-get install -yq lxc lxc-templates lxc-utils swapspace
+ - echo LXC_DHCP_CONFILE=/etc/lxc/dnsmasq.conf |tee -a /etc/default/lxc-net
+ - echo dhcp-hostsfile=/etc/lxc/dnsmasq-hosts.conf |tee /etc/lxc/dnsmasq.conf
+ - echo pbsdebian,10.0.2.2 |tee /etc/lxc/dnsmasq-hosts.conf
+ - systemctl restart lxc-net
  - lxc-create -n pbsdebian -t download -- --dist debian --release bullseye --arch amd64
  - iptables -t nat -A POSTROUTING -s 10.0.2.0/24 -j MASQUERADE
+ - iptables -t nat -A PREROUTING -p tcp --dport 8007 -j DNAT --to-destination 10.0.2.2
  - iptables -I FORWARD -s 10.0.2.0/24 -j ACCEPT
  - iptables -I FORWARD -d 10.0.2.0/24 -j ACCEPT
  - iptables -I INPUT -i lxcbr0 -p udp --dport 53 -j ACCEPT
@@ -20,11 +25,15 @@ runcmd:
  - lxc-start -n pbsdebian
  - sleep 30
  - echo deb http://download.proxmox.com/debian/pbs bullseye pbs-no-subscription | lxc-attach -n pbsdebian -- tee /etc/apt/sources.list.d/pbs-backups.list
- - lxc-attach -n pbsdebian -- apt install -y wget
+ - lxc-attach -n pbsdebian -- apt-get install -yq wget
  - lxc-attach -n pbsdebian -- wget https://enterprise.proxmox.com/debian/proxmox-release-bullseye.gpg -O /etc/apt/trusted.gpg.d/proxmox-release-bullseye.gpg
- - lxc-attach -n pbsdebian -- apt update
- - lxc-attach -n pbsdebian -- apt -y full-upgrade
- - lxc-attach -n pbsdebian -- apt install -y proxmox-backup-server
+ - lxc-attach -n pbsdebian -- apt-get update
+ - lxc-attach -n pbsdebian -- apt-get -y full-upgrade
+ - echo "postfix postfix/mailname string pbs" | lxc-attach -n pbsdebian -- debconf-set-selections
+ - echo "postfix postfix/main_mailer_type string 'Internet Site'" | lxc-attach -n pbsdebian -- debconf-set-selections
+ - lxc-attach -n pbsdebian -- apt-get install -yqq proxmox-backup-server
+ - echo root:"${random_password.rootpassword.result}" | lxc-attach -n pbsdebian -- chpasswd
+ - lxc-attach -n pbsdebian -- /usr/sbin/proxmox-backup-manager datastore create backup /backup --gc-schedule daily daily
 YAML
 }
 
@@ -42,7 +51,7 @@ resource "oci_core_instance" "compute_instance" {
 
   metadata = {
     ssh_authorized_keys = var.ssh_public_key == "" ? tls_private_key.public_private_key_pair.public_key_openssh : var.ssh_public_key
-    user_data = "${base64encode(data.template_file.cloud-config.rendered)}"
+    user_data           = "${base64encode(data.template_file.cloud-config.rendered)}"
   }
 
   create_vnic_details {
@@ -55,7 +64,7 @@ resource "oci_core_instance" "compute_instance" {
   source_details {
     source_type             = "image"
     source_id               = lookup(data.oci_core_images.InstanceImageOCID.images[0], "id")
-    boot_volume_size_in_gbs = "50"
+    boot_volume_size_in_gbs = "80"
   }
 
   timeouts {

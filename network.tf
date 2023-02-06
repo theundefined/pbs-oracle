@@ -6,7 +6,7 @@
 resource "oci_core_virtual_network" "vcn" {
   cidr_block     = var.VCN-CIDR
   compartment_id = var.compartment_ocid
-  display_name   = "test-vcn"
+  display_name   = "pbs-vcn"
 }
 
 # Create internet gateway to allow public internet traffic
@@ -57,8 +57,8 @@ resource "oci_core_security_list" "sl" {
     source   = "0.0.0.0/0"
 
     tcp_options {
-      max = 80
-      min = 80
+      max = 8007
+      min = 8007
     }
   }
 }
@@ -67,7 +67,7 @@ resource "oci_core_security_list" "sl" {
 
 resource "oci_core_subnet" "subnet" {
   cidr_block        = var.Subnet-CIDR
-  display_name      = "test-subnet"
+  display_name      = "pbs-subnet"
   compartment_id    = var.compartment_ocid
   vcn_id            = oci_core_virtual_network.vcn.id
   dhcp_options_id   = oci_core_virtual_network.vcn.default_dhcp_options_id
