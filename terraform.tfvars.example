@@ -1,0 +1,4 @@
+tenancy_ocid = ""
+ssh_public_key = ""
+region = "eu-frankfurt-1"
+compartment_ocid = ""
